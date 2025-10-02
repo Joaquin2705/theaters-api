@@ -1,0 +1,12 @@
+services:
+  api-sqlite:
+    build: .
+    container_name: api_sqlite
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    environment:
+      DB_PATH: "/mnt/theaters/theaters.db"
+      INIT_SCHEMA: "1"
+    volumes:
+      - /mnt/theaters:/mnt/theaters:rw
