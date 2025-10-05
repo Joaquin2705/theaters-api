@@ -248,3 +248,161 @@ Salida esperada:
 1|Cine Plaza Norte|Lima|Independencia|0
 
 ```
+
+# 🚀 Cómo volver a levantar todo el entorno después de reiniciar
+
+---
+
+## 🗄️ 1️⃣ En la MV DB (Servidor NFS + SQLite)
+
+### A. Verifica que el servicio NFS esté activo
+
+```bash
+sudo systemctl status nfs-kernel-server
+
+```
+
+> Si no está activo, inícialo:
+> 
+
+```bash
+sudo systemctl start nfs-kernel-server
+
+```
+
+### B. Verifica que la carpeta compartida sigue exportada
+
+```bash
+sudo exportfs -v
+
+```
+
+Deberías ver algo como:
+
+```
+/srv/theaters  172.31.0.0/16(rw,sync,wdelay,...)
+
+```
+
+Si no aparece:
+
+```bash
+sudo exportfs -ra
+
+```
+
+### C. Asegúrate de que exista el archivo de la base de datos
+
+```bash
+ls -l /srv/theaters/theaters.db
+
+```
+
+### D. Levanta el contenedor SQLite
+
+Ubícate en tu carpeta del proyecto (por ejemplo `~/sqlite-docker`) y ejecuta:
+
+```bash
+cd ~/sqlite-docker
+docker compose up -d
+
+```
+
+Verifica que está corriendo:
+
+```bash
+docker ps
+
+```
+
+Debe salir algo como:
+
+```
+CONTAINER ID   IMAGE                  NAME         STATUS
+123abc456def   nouchka/sqlite3:latest sqlite_db    Up 2 seconds
+
+```
+
+Ejecutamos el código
+
+```sql
+docker exec -it sqlite_db sqlite3 /mnt/theaters/theaters.db
+.tables
+SELECT * FROM cinemas;
+```
+
+## 🖥️ 2️⃣ En la MV APP (Cliente NFS + API)
+
+### A. Montar el volumen NFS (si no está montado automáticamente)
+
+Comprueba:
+
+```bash
+mount | grep /mnt/theaters
+
+```
+
+Si no aparece nada, móntalo de nuevo:
+
+```bash
+sudo mount -t nfs -o vers=4.2,proto=tcp 172.31.24.15:/srv/theaters /mnt/theaters
+
+```
+
+---
+
+### B. Levantar la API
+
+Entra al directorio de tu API clonada:
+
+```bash
+cd ~/theaters-api
+
+```
+
+Y corre:
+
+```bash
+docker compose up -d
+
+```
+
+Verifica que la API esté arriba:
+
+```bash
+docker ps
+
+```
+
+Debe mostrar algo como:
+
+```
+CONTAINER ID   IMAGE                   NAME          STATUS
+789xyz123abc   theaters-api_api-sqlite api_sqlite    Up 3 seconds
+
+```
+
+Montamos, desmontamos y reiniciamos el contenedor
+
+```sql
+sudo umount /mnt/theaters
+sudo mount -t nfs -o vers=4.2,proto=tcp 172.31.27.154:/srv/theaters /mnt/theaters
+```
+
+```sql
+ls -l /mnt/theaters/theaters.db
+```
+
+```sql
+ docker restart api_sqlite
+```
+
+Ejecutamos el código
+
+```sql
+docker exec -it api_sqlite sqlite3 /mnt/theaters/theaters.db
+```
+
+```sql
+SELECT * FROM cinemas;
+```
